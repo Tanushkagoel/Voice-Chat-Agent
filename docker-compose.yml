@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: alder
+      POSTGRES_PASSWORD: alder
+      POSTGRES_DB: alder
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alder -d alder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  livekit:
+    image: livekit/livekit-server:v1.8.4
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./deploy/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://alder:alder@db:5432/alder
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /srv/data/uploads
+      STATIC_DIR: /srv/frontend/dist
+    volumes:
+      - uploads:/srv/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  agent:
+    build: .
+    command: ["python", "-m", "app.voice.worker"]
+    env_file:
+      - ./backend/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      API_BASE_URL: http://app:8000
+    depends_on:
+      - app
+      - redis
+
+volumes:
+  pgdata:
+  uploads:
