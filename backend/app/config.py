@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,16 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 8 * 1024 * 1024
     gemini_input_usd_per_million: float = 0.0
     gemini_output_usd_per_million: float = 0.0
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _postgres_async_driver(cls, value: str) -> str:
+        # Render supplies postgres://. SQLAlchemy needs the asyncpg driver named.
+        if value.startswith("postgres://"):
+            return "postgresql+asyncpg://" + value[len("postgres://") :]
+        if value.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + value[len("postgresql://") :]
+        return value
 
     @property
     def cors_origin_list(self) -> list[str]:

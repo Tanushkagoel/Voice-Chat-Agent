@@ -255,6 +255,13 @@ async def test_bad_photo_is_rejected(client: AsyncClient):
     assert response.status_code == 422
 
 
+def test_render_postgres_url_uses_the_async_driver():
+    from app.config import Settings
+
+    settings = Settings(database_url="postgres://alder:alder@db.internal:5432/alder")
+    assert settings.database_url.startswith("postgresql+asyncpg://")
+
+
 def test_extraction_prompt_keeps_the_json_shape():
     from app.agent.llm import SYSTEM
 

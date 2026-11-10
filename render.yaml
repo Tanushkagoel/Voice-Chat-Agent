@@ -1,0 +1,65 @@
+# Render Blueprint. Secrets are entered in the dashboard, not stored here.
+services:
+  - type: web
+    name: alder
+    runtime: docker
+    plan: free
+    branch: main
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alder-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: alder-redis
+          type: keyvalue
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        value: wss://car-insurance-agent-ulmieiqt.livekit.cloud
+      - key: LIVEKIT_PUBLIC_URL
+        value: wss://car-insurance-agent-ulmieiqt.livekit.cloud
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+
+  - type: worker
+    name: alder-voice
+    runtime: docker
+    plan: free
+    branch: main
+    dockerCommand: python -m app.voice.worker
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: alder-redis
+          type: keyvalue
+          property: connectionString
+      - key: API_BASE_URL
+        fromService:
+          name: alder
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        value: wss://car-insurance-agent-ulmieiqt.livekit.cloud
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+
+  - type: keyvalue
+    name: alder-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+databases:
+  - name: alder-db
+    databaseName: alder
+    postgresMajorVersion: "16"
