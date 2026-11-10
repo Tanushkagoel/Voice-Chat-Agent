@@ -26,32 +26,8 @@ services:
         sync: false
       - key: LIVEKIT_API_SECRET
         sync: false
-
-  - type: worker
-    name: alder-voice
-    runtime: docker
-    plan: free
-    branch: main
-    dockerCommand: python -m app.voice.worker
-    envVars:
-      - key: REDIS_URL
-        fromService:
-          name: alder-redis
-          type: keyvalue
-          property: connectionString
-      - key: API_BASE_URL
-        fromService:
-          name: alder
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: LIVEKIT_URL
-        value: wss://car-insurance-agent-ulmieiqt.livekit.cloud
-      - key: LIVEKIT_API_KEY
-        sync: false
-      - key: LIVEKIT_API_SECRET
-        sync: false
+      - key: RUN_VOICE_WORKER
+        value: "1"
 
   - type: keyvalue
     name: alder-redis
@@ -62,4 +38,5 @@ services:
 databases:
   - name: alder-db
     databaseName: alder
+    plan: free
     postgresMajorVersion: "16"

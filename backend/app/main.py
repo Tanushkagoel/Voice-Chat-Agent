@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -45,9 +47,34 @@ async def lifespan(app: FastAPI):
         await recover_deliveries()
     except Exception:
         log.exception("Delivery recovery failed")
-    yield
-    await stop_redis()
-    await dispose_engine()
+    voice_task = _start_voice_worker(settings)
+    try:
+        yield
+    finally:
+        if voice_task is not None:
+            voice_task.cancel()
+            try:
+                await voice_task
+            except asyncio.CancelledError:
+                pass
+        await stop_redis()
+        await dispose_engine()
+
+
+def _start_voice_worker(settings) -> asyncio.Task | None:
+    """Run the call listener in this process so a free web instance needs no paid worker."""
+    if os.environ.get("RUN_VOICE_WORKER") != "1":
+        return None
+    if not settings.redis_url or not settings.livekit_url:
+        log.warning("Voice worker not started: REDIS_URL and LIVEKIT_URL are required")
+        return None
+    port = os.environ.get("PORT")
+    if port:
+        settings.api_base_url = f"http://127.0.0.1:{port}"
+    from app.voice.worker import serve
+
+    log.info("Starting the voice worker inside the web process")
+    return asyncio.create_task(serve())
 
 
 def create_app() -> FastAPI:
